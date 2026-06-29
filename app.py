@@ -61,7 +61,6 @@ class ThemeEntry:
         return str(self.theme_id)
 
 
-
 class ThemeJsonEditor:
     @staticmethod
     def parse(text: str) -> Tuple[Optional[dict], Optional[str]]:
@@ -107,40 +106,24 @@ class ThemeJsonEditor:
         cur[path[-1]] = value
 
 
-
 class ThemeManagerApp(AppBase):
     def on_init(self):
         self.window = None
-    def on_load(self):
-        try:
-            # ensure GUI-thread creation
-            from PySide6.QtCore import QTimer
-            QTimer.singleShot(0, lambda: self._create_window())
-        except Exception:
-            self._create_window()
 
-    def _create_window(self):
-        if self.window is None:
-            try:
-                self.window = ThemeManagerWindow(self)
-            except Exception:
-                self.window = None
+    def on_load(self):
+        self.window = ThemeManagerWindow(self)
 
     def on_unload(self):
         if self.window is not None:
             self.window.hide()
-            
+
         self.window = None
-        
-        
+
     def run(self):
         if self.window is None:
             return
-        
-        self.window.show()
-        self.window.raise_()
-        self.window.activateWindow()
 
+        self.window.toggle()
 
 
 class ThemeManagerWindow(QDialog):
@@ -175,6 +158,14 @@ class ThemeManagerWindow(QDialog):
         self._select_current_theme()
         self._load_selected_theme_editor()
         self._refresh_preview()
+
+    def toggle(self):
+        if self.isVisible():
+            self.hide()
+        else:
+            self.show()
+            self.raise_()
+            self.activateWindow()
 
     def _context_get(self, key, default=None):
         if isinstance(self.context, dict):
@@ -334,10 +325,22 @@ class ThemeManagerWindow(QDialog):
             ("Background", ["colors", "background"]),
             ("Dock BG", ["components", "dock", "background_color"]),
             ("Dock Border", ["components", "dock", "border_color"]),
-            ("Button BG", ["components", "button", Theme.BUTTON_NORMAL, "background_color"]),
-            ("Button Hover", ["components", "button", Theme.BUTTON_NORMAL, "hover_color"]),
-            ("Button Pressed", ["components", "button", Theme.BUTTON_NORMAL, "pressed_color"]),
-            ("Button Border", ["components", "button", Theme.BUTTON_NORMAL, "border_color"]),
+            (
+                "Button BG",
+                ["components", "button", Theme.BUTTON_NORMAL, "background_color"],
+            ),
+            (
+                "Button Hover",
+                ["components", "button", Theme.BUTTON_NORMAL, "hover_color"],
+            ),
+            (
+                "Button Pressed",
+                ["components", "button", Theme.BUTTON_NORMAL, "pressed_color"],
+            ),
+            (
+                "Button Border",
+                ["components", "button", Theme.BUTTON_NORMAL, "border_color"],
+            ),
             ("Icon Color", ["components", "icon", Theme.ICON_NORMAL, "color"]),
         ]
 
@@ -411,7 +414,11 @@ class ThemeManagerWindow(QDialog):
         for rec in records:
             tid = rec.get("id")
             source = rec.get("source", ThemePathResolver.SOURCE_BUILTIN)
-            entry_source = ThemeEntry.SOURCE_BUILTIN if source == ThemePathResolver.SOURCE_BUILTIN else ThemeEntry.SOURCE_USER
+            entry_source = (
+                ThemeEntry.SOURCE_BUILTIN
+                if source == ThemePathResolver.SOURCE_BUILTIN
+                else ThemeEntry.SOURCE_USER
+            )
             self.entries.append(ThemeEntry(tid, entry_source, rec.get("path")))
             if tid:
                 seen.add(Theme.normalize_theme_id(tid))
@@ -425,7 +432,9 @@ class ThemeManagerWindow(QDialog):
                     theme_id = Theme.normalize_theme_id(path.stem)
                     if theme_id in seen:
                         continue
-                    self.entries.append(ThemeEntry(theme_id, ThemeEntry.SOURCE_THEME_MANAGER, path))
+                    self.entries.append(
+                        ThemeEntry(theme_id, ThemeEntry.SOURCE_THEME_MANAGER, path)
+                    )
                     seen.add(theme_id)
         except Exception:
             pass
@@ -434,8 +443,12 @@ class ThemeManagerWindow(QDialog):
         self._reload_theme_entries()
         self.theme_list.blockSignals(True)
         self.theme_list.clear()
-        builtin = [e for e in self.entries if e.source_type == ThemeEntry.SOURCE_BUILTIN]
-        theme_manager = [e for e in self.entries if e.source_type == ThemeEntry.SOURCE_THEME_MANAGER]
+        builtin = [
+            e for e in self.entries if e.source_type == ThemeEntry.SOURCE_BUILTIN
+        ]
+        theme_manager = [
+            e for e in self.entries if e.source_type == ThemeEntry.SOURCE_THEME_MANAGER
+        ]
         user = [e for e in self.entries if e.source_type == ThemeEntry.SOURCE_USER]
 
         for e in builtin:
@@ -515,14 +528,18 @@ class ThemeManagerWindow(QDialog):
         current = self.theme_list.currentItem() if hasattr(self, "theme_list") else None
         if current is None:
             for e in self.entries:
-                if Theme.normalize_theme_id(e.theme_id) == Theme.normalize_theme_id(self.current_theme_id):
+                if Theme.normalize_theme_id(e.theme_id) == Theme.normalize_theme_id(
+                    self.current_theme_id
+                ):
                     return e
             return None
         theme_id = current.data(self.ROLE_THEME_ID)
         if not theme_id:
             return None
         for e in self.entries:
-            if Theme.normalize_theme_id(e.theme_id) == Theme.normalize_theme_id(theme_id):
+            if Theme.normalize_theme_id(e.theme_id) == Theme.normalize_theme_id(
+                theme_id
+            ):
                 return e
         return None
 
@@ -565,7 +582,9 @@ class ThemeManagerWindow(QDialog):
         self.save_theme_btn.setEnabled(is_editable)
         self.clone_btn.setEnabled(entry is not None)
         self.apply_btn.setEnabled(entry is not None)
-        self.remove_btn.setEnabled(bool(entry and entry.removable and selected_type == "user"))
+        self.remove_btn.setEnabled(
+            bool(entry and entry.removable and selected_type == "user")
+        )
 
     def _selected_meta_type(self) -> str:
         data = self._get_selected_theme_data()
@@ -586,10 +605,18 @@ class ThemeManagerWindow(QDialog):
             return
         theme_id = Theme.normalize_theme_id(name)
         if not theme_id:
-            self._show_message("Invalid Name", "Theme name cannot be empty.", MessageDialog.Icon.WARNING)
+            MessageDialog.warning(
+                self,
+                "Invalid Name",
+                "Theme name cannot be empty."
+            )
             return
         if Theme.theme_exists(theme_id):
-            self._show_message("Duplicate Theme", "A theme with this name already exists.", MessageDialog.Icon.WARNING)
+            MessageDialog.warning(
+                self,
+                "Duplicate Theme",
+                "A theme with this name already exists."
+            )
             return
         Theme.create_user_theme(theme_id, str(name), Theme.get_current_theme_id())
         Theme.reload()
@@ -617,10 +644,18 @@ class ThemeManagerWindow(QDialog):
             return
         theme_id = Theme.normalize_theme_id(name)
         if not theme_id:
-            self._show_message("Invalid Name", "Theme name cannot be empty.", MessageDialog.Icon.WARNING)
+            MessageDialog.warning(
+                self,
+                "Invalid Name",
+                "Theme name cannot be empty."
+            )
             return
         if Theme.theme_exists(theme_id):
-            self._show_message("Duplicate Theme", "A theme with this name already exists.", MessageDialog.Icon.WARNING)
+            MessageDialog.warning(
+                self,
+                "Duplicate Theme",
+                "A theme with this name already exists."
+            )
             return
         data = deepcopy(self._get_merged_theme())
         data.setdefault("meta", {})
@@ -643,14 +678,18 @@ class ThemeManagerWindow(QDialog):
         if entry is None or not entry.removable:
             return
         theme_data = self._get_selected_theme_data()
-        meta = theme_data.get("meta", {}) if isinstance(theme_data.get("meta"), dict) else {}
+        meta = (
+            theme_data.get("meta", {})
+            if isinstance(theme_data.get("meta"), dict)
+            else {}
+        )
         if str(meta.get("type", "")).strip().lower() != "user":
             return
         if self._is_entry_active(entry):
-            self._show_message(
+            MessageDialog.warning(
+                self,
                 "Cannot Remove Active Theme",
-                "Apply another theme before removing the active user theme.",
-                MessageDialog.Icon.WARNING,
+                "Apply another theme before removing the active user theme."
             )
             return
         title = meta.get("name") or entry.display_name
@@ -668,7 +707,11 @@ class ThemeManagerWindow(QDialog):
             )
         except Exception:
             try:
-                dialog = ConfirmDialog(self, title="Remove Theme", message=f'Are you sure you want to remove "{title}"?')
+                dialog = ConfirmDialog(
+                    self,
+                    title="Remove Theme",
+                    message=f'Are you sure you want to remove "{title}"?',
+                )
                 confirmed = bool(dialog.exec())
             except Exception:
                 confirmed = False
@@ -676,12 +719,16 @@ class ThemeManagerWindow(QDialog):
             return
         try:
             if entry.path is None or not Path(entry.path).exists():
-                self._show_message("Remove Failed", "Could not find the selected theme file.", MessageDialog.Icon.WARNING)
+                MessageDialog.warning(
+                    self,
+                    "Remove Failed",
+                    "Could not find the selected theme file."
+                )
                 return
             Path(entry.path).unlink()
             Theme.reload()
         except Exception as e:
-            self._show_message("Remove Failed", str(e), MessageDialog.Icon.WARNING)
+            MessageDialog.warning(self, "Remove Failed", str(e))
             return
         self._load_theme_list()
         self.current_theme_id = Theme.get_current_theme_id()
@@ -689,12 +736,19 @@ class ThemeManagerWindow(QDialog):
         self._load_selected_theme_editor()
         self._update_editor_state()
         self._refresh_preview()
-        self._show_message("Removed", "Theme removed successfully.", MessageDialog.Icon.SUCCESS)
+        MessageDialog.success(
+            self,
+            "Removed", "Theme removed successfully."
+        )
 
     def _save_theme(self):
         entry = self._get_selected_entry()
         if entry is None or not entry.editable:
-            self._show_message("Read Only Theme", "Only user themes can be saved.", MessageDialog.Icon.WARNING)
+            MessageDialog.warning(
+                self,
+                "Read Only Theme",
+                "Only user themes can be saved."
+            )
             return
         data = self._read_override_or_alert()
         if data is None:
@@ -703,7 +757,10 @@ class ThemeManagerWindow(QDialog):
         Theme.reload()
         self._load_theme_list()
         self._select_current_theme()
-        self._show_message("Saved", "Theme saved successfully.", MessageDialog.Icon.SUCCESS)
+        MessageDialog.success(
+            self,
+            "Saved", "Theme saved successfully."
+        )
 
     def _apply_theme(self):
         entry = self._get_selected_entry()
@@ -735,7 +792,9 @@ class ThemeManagerWindow(QDialog):
         theme = self._get_merged_theme()
         current_value = ThemeJsonEditor.get_nested(theme, path, "#ffffff")
         initial_color = Theme.to_ui_qcolor(current_value)
-        color = QColorDialog.getColor(initial_color, self, "Select Color", QColorDialog.ShowAlphaChannel)
+        color = QColorDialog.getColor(
+            initial_color, self, "Select Color", QColorDialog.ShowAlphaChannel
+        )
         if not color.isValid():
             return
         override = self._read_override_or_empty()
@@ -766,19 +825,33 @@ class ThemeManagerWindow(QDialog):
         button_text_color = uic(button.get(Theme.Components.Button.TEXT_COLOR))
         title_text_color = uic(title_text.get(Theme.Components.Text.COLOR))
         subtitle_text_color = uic(subtitle_text.get(Theme.Components.Text.COLOR))
-        
-        warning_button_bg = uic(warning_button.get(Theme.Components.Button.BACKGROUND_COLOR))
-        warning_button_hover = uic(warning_button.get(Theme.Components.Button.HOVER_COLOR))
-        warning_button_pressed = uic(warning_button.get(Theme.Components.Button.PRESSED_COLOR))
-        warning_button_border = uic(warning_button.get(Theme.Components.Button.BORDER_COLOR))
-        warning_button_text_color = uic(warning_button.get(Theme.Components.Button.TEXT_COLOR))
-        
+
+        warning_button_bg = uic(
+            warning_button.get(Theme.Components.Button.BACKGROUND_COLOR)
+        )
+        warning_button_hover = uic(
+            warning_button.get(Theme.Components.Button.HOVER_COLOR)
+        )
+        warning_button_pressed = uic(
+            warning_button.get(Theme.Components.Button.PRESSED_COLOR)
+        )
+        warning_button_border = uic(
+            warning_button.get(Theme.Components.Button.BORDER_COLOR)
+        )
+        warning_button_text_color = uic(
+            warning_button.get(Theme.Components.Button.TEXT_COLOR)
+        )
+
         info_button_bg = uic(info_button.get(Theme.Components.Button.BACKGROUND_COLOR))
         info_button_hover = uic(info_button.get(Theme.Components.Button.HOVER_COLOR))
-        info_button_pressed = uic(info_button.get(Theme.Components.Button.PRESSED_COLOR))
+        info_button_pressed = uic(
+            info_button.get(Theme.Components.Button.PRESSED_COLOR)
+        )
         info_button_border = uic(info_button.get(Theme.Components.Button.BORDER_COLOR))
-        info_button_text_color = uic(info_button.get(Theme.Components.Button.TEXT_COLOR))
-                
+        info_button_text_color = uic(
+            info_button.get(Theme.Components.Button.TEXT_COLOR)
+        )
+
         selected_bg = button_pressed
         accent_bg = button_hover
         close_text = uic(close_button.get(Theme.Components.Button.TEXT_COLOR))
@@ -786,8 +859,12 @@ class ThemeManagerWindow(QDialog):
         close_border = uic(close_button.get(Theme.Components.Button.BORDER_COLOR))
         close_hover = uic(close_button.get(Theme.Components.Button.HOVER_COLOR))
         close_pressed = uic(close_button.get(Theme.Components.Button.PRESSED_COLOR))
-        disabled_button_bg = uic(muted_button.get(Theme.Components.Button.BACKGROUND_COLOR))
-        disabled_button_border = uic(muted_button.get(Theme.Components.Button.BORDER_COLOR))
+        disabled_button_bg = uic(
+            muted_button.get(Theme.Components.Button.BACKGROUND_COLOR)
+        )
+        disabled_button_border = uic(
+            muted_button.get(Theme.Components.Button.BORDER_COLOR)
+        )
         disabled_button_text = uic(muted_button.get(Theme.Components.Button.TEXT_COLOR))
 
         scrollbar_style = f"""
@@ -862,8 +939,9 @@ class ThemeManagerWindow(QDialog):
             }}
             """
 
-
-        self.setStyleSheet(scrollbar_style + f"""
+        self.setStyleSheet(
+            scrollbar_style
+            + f"""
             QDialog {{
                 background: {window_bg};
             }}
@@ -935,7 +1013,7 @@ class ThemeManagerWindow(QDialog):
                 border: 1px solid transparent;
             }}
             QListWidget#themeList {{
-                background: {panel_bg};
+                background: {window_bg};
                 border: 1px solid {border_color};
                 border-radius: 12px;
                 color: {title_text_color};
@@ -976,7 +1054,7 @@ class ThemeManagerWindow(QDialog):
                 border-radius: 14px;
             }}
             QPlainTextEdit#overrideEditor {{
-                background: {editor_bg};
+                background: {window_bg};
                 border: 1px solid {border_color};
                 border-radius: 12px;
                 color: {title_text_color};
@@ -1053,7 +1131,8 @@ class ThemeManagerWindow(QDialog):
                 min-height: 44px;
                 max-height: 44px;
             }}
-        """)
+        """
+        )
 
     def _refresh_preview(self):
         if not hasattr(self, "preview_card"):
@@ -1077,17 +1156,29 @@ class ThemeManagerWindow(QDialog):
         dock_bg = uic(dock.get("background_color", "#1e1e1eff"))
         dock_border = uic(dock.get("border_color", "#ffffff33"))
         dock_border_width = dock.get("border_width", 1)
-        dock_radius = min(int(dock.get("border_radius", Theme.get_size("dock_radius", 12, theme))), 16)
+        dock_radius = min(
+            int(dock.get("border_radius", Theme.get_size("dock_radius", 12, theme))), 16
+        )
 
-        button_bg = uic(button.get("background_color", dock.get("background_color", "#2a2a2aff")))
-        button_hover = uic(button.get("hover_color", button.get("background_color", "#333333ff")))
-        button_pressed = uic(button.get("pressed_color", button.get("background_color", "#242424ff")))
-        button_border = uic(button.get("border_color", dock.get("border_color", "#ffffff33")))
+        button_bg = uic(
+            button.get("background_color", dock.get("background_color", "#2a2a2aff"))
+        )
+        button_hover = uic(
+            button.get("hover_color", button.get("background_color", "#333333ff"))
+        )
+        button_pressed = uic(
+            button.get("pressed_color", button.get("background_color", "#242424ff"))
+        )
+        button_border = uic(
+            button.get("border_color", dock.get("border_color", "#ffffff33"))
+        )
         button_border_width = button.get("border_width", 1)
         button_radius = min(int(button.get("border_radius", 10)), 14)
 
         icon_color = uic(icon.get("color", "#ffffffff"))
-        icon_size = min(int(icon.get("size", Theme.get_size("icon_size", 28, theme))), 30)
+        icon_size = min(
+            int(icon.get("size", Theme.get_size("icon_size", 28, theme))), 30
+        )
 
         spacing = min(int(layout.get("spacing", 10)), 14)
         padding = min(int(layout.get("padding", 10)), 14)
@@ -1157,14 +1248,22 @@ class ThemeManagerWindow(QDialog):
         """)
 
     def _read_override_or_empty(self) -> dict:
-        text = self.override_editor.toPlainText() if hasattr(self, "override_editor") else ""
+        text = (
+            self.override_editor.toPlainText()
+            if hasattr(self, "override_editor")
+            else ""
+        )
         return ThemeJsonEditor.parse_silent(text)
 
     def _read_override_or_alert(self) -> Optional[dict]:
         value, error = ThemeJsonEditor.parse(self.override_editor.toPlainText())
         if error is not None:
-            title = "Invalid Theme" if error == "Theme JSON must be a JSON object." else "Invalid JSON"
-            self._show_message(title, error, MessageDialog.Icon.WARNING)
+            title = (
+                "Invalid Theme"
+                if error == "Theme JSON must be a JSON object."
+                else "Invalid JSON"
+            )
+            MessageDialog.warning(self, title, error)
             return None
         return value
 
@@ -1174,7 +1273,9 @@ class ThemeManagerWindow(QDialog):
         self.override_editor.blockSignals(False)
 
     def _qcolor_to_theme_hex(self, color: QColor) -> str:
-        return "#{:02x}{:02x}{:02x}{:02x}".format(color.red(), color.green(), color.blue(), color.alpha())
+        return "#{:02x}{:02x}{:02x}{:02x}".format(
+            color.red(), color.green(), color.blue(), color.alpha()
+        )
 
     def _is_entry_active(self, entry: Optional[ThemeEntry]) -> bool:
         if entry is None:
@@ -1188,12 +1289,16 @@ class ThemeManagerWindow(QDialog):
             except Exception:
                 return False
             return False
-        return Theme.normalize_theme_id(current) == Theme.normalize_theme_id(entry.theme_id)
+        return Theme.normalize_theme_id(current) == Theme.normalize_theme_id(
+            entry.theme_id
+        )
 
     def _reload_dock(self):
         if self.dock is None:
             return
-        theme_value = self.config_manager.data.get("theme", Theme.get_current_theme_id())
+        theme_value = self.config_manager.data.get(
+            "theme", Theme.get_current_theme_id()
+        )
         if hasattr(self.dock, "current_theme_name"):
             try:
                 self.dock.current_theme_name = Theme.get_current_theme_id()
@@ -1204,9 +1309,7 @@ class ThemeManagerWindow(QDialog):
                 self.dock.active_theme = Theme.get_theme(theme_value)
             except Exception:
                 pass
-        # Prefer a single, centralized theme application call on the dock to avoid
-        # repeated UI work. `apply_theme` should handle applying theme state and
-        # notifying apps; fall back to `update()` if it's not available.
+
         if hasattr(self.dock, "apply_theme"):
             try:
                 self.dock.apply_theme()
@@ -1220,15 +1323,14 @@ class ThemeManagerWindow(QDialog):
             except Exception:
                 pass
 
-    def _show_message(self, title, text, icon=MessageDialog.Icon.INFO):
-        MessageDialog.show(self, title=title, subtitle=text, icon=icon)
-
     def _display_name(self, value):
         return str(value).replace("-", " ").replace("_", " ").title()
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
-            self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            self.drag_position = (
+                event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            )
             event.accept()
 
     def mouseMoveEvent(self, event):
